@@ -1,5 +1,11 @@
 use std::{env, error::Error, fmt};
 
+#[expect(
+    dead_code,
+    reason = "the command-line configuration path is scheduled for a later task"
+)]
+mod config;
+
 const HELP_TEXT: &str = "server-ops updates available system packages on configured servers.\n\
 \n\
 Usage:\n\
