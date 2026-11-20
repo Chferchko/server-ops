@@ -1,0 +1,23 @@
+# Public template: replace every placeholder before use.
+
+[run]
+# Leave enabled while reviewing the planned work. It will be implemented in task-5.3.
+dry_run = true
+connection_timeout_seconds = 10
+command_timeout_seconds = 300
+
+[ssh]
+user = "serverops"
+private_key_path = "/home/your-user/.ssh/server_ops_ed25519"
+public_key_path = "/home/your-user/.ssh/server_ops_ed25519.pub"
+
+[[servers]]
+# RFC 5737 documentation address; replace with an explicitly approved server IP.
+address = "192.0.2.10"
+
+[[servers]]
+address = "198.51.100.20"
+
+[telegram]
+# `0` is deliberately invalid and must be replaced with the destination chat ID.
+chat_id = 0
