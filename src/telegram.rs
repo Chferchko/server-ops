@@ -4,13 +4,6 @@ use serde::Serialize;
 
 use crate::config::TelegramBotToken;
 
-#[cfg_attr(
-    test,
-    expect(
-        dead_code,
-        reason = "the production constructor is used by a later delivery task"
-    )
-)]
 const TELEGRAM_API_BASE_URL: &str = "https://api.telegram.org/";
 
 pub(crate) struct TelegramClient {
@@ -19,13 +12,6 @@ pub(crate) struct TelegramClient {
 }
 
 impl TelegramClient {
-    #[cfg_attr(
-        test,
-        expect(
-            dead_code,
-            reason = "the production constructor is used by a later delivery task"
-        )
-    )]
     pub(crate) fn new(
         bot_token: &TelegramBotToken,
         timeout: Duration,
