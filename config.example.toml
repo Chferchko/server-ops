@@ -1,7 +1,7 @@
 # Public template: replace every placeholder before use.
 
 [run]
-# Leave enabled while reviewing the planned work. It will be implemented in task-5.3.
+# Retained for the future update workflow. Use `--dry-run config.toml` now.
 dry_run = true
 connection_timeout_seconds = 10
 command_timeout_seconds = 300

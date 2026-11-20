@@ -17,9 +17,9 @@ mod telegram;
 const HELP_TEXT: &str = "server-ops updates available system packages on configured servers.\n\
 \n\
 Usage:\n\
-  server-ops [--help | --telegram-check <CONFIG_PATH>]\n\
+  server-ops [--help | --dry-run <CONFIG_PATH> | --telegram-check <CONFIG_PATH>]\n\
 \n\
-No server actions are performed yet.";
+Use --dry-run to inspect the planned server stages without network operations.";
 const TELEGRAM_CHECK_MESSAGE: &str = "server-ops: Telegram delivery check.";
 const TELEGRAM_REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 
@@ -84,7 +84,36 @@ fn run(arguments: impl IntoIterator<Item = String>) -> Result<(), AppError> {
             },
             None => Err(AppError::InvalidArgument(argument)),
         },
+        Some(argument) if argument == "--dry-run" => match arguments.next() {
+            Some(config_path) => match arguments.next() {
+                None => dry_run(&config_path),
+                Some(argument) => Err(AppError::InvalidArgument(argument)),
+            },
+            None => Err(AppError::InvalidArgument(argument)),
+        },
         Some(argument) => Err(AppError::InvalidArgument(argument)),
+    }
+}
+
+fn dry_run(config_path: impl AsRef<Path>) -> Result<(), AppError> {
+    let config = config::load(config_path).map_err(AppError::Configuration)?;
+    print_dry_run_plan(&config, |line| println!("{line}"));
+    Ok(())
+}
+
+fn print_dry_run_plan(config: &config::Config, mut write_line: impl FnMut(String)) {
+    write_line(
+        "Dry run: no SSH connections, package updates, or Telegram messages will be sent.".into(),
+    );
+
+    for server in &config.servers {
+        write_line(format!("Server {}:", server.address));
+        write_line(format!(
+            "  1. Connect over SSH as {} using the configured key.",
+            config.ssh.user
+        ));
+        write_line("  2. Run `sudo apt update`.".into());
+        write_line("  3. Run `sudo apt upgrade`.".into());
     }
 }
 
@@ -119,14 +148,20 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::{cell::RefCell, future, rc::Rc};
+    use std::{cell::RefCell, future, path::PathBuf, rc::Rc};
 
-    use super::{AppError, HELP_TEXT, TELEGRAM_CHECK_MESSAGE, run, send_telegram_check};
+    use crate::config::{Config, RunConfig, ServerConfig, SshConfig, TelegramConfig};
+
+    use super::{
+        AppError, HELP_TEXT, TELEGRAM_CHECK_MESSAGE, print_dry_run_plan, run, send_telegram_check,
+    };
 
     #[test]
     fn help_text_describes_the_utility() {
         assert!(HELP_TEXT.contains("updates available system packages"));
-        assert!(HELP_TEXT.contains("server-ops [--help | --telegram-check <CONFIG_PATH>]"));
+        assert!(HELP_TEXT.contains(
+            "server-ops [--help | --dry-run <CONFIG_PATH> | --telegram-check <CONFIG_PATH>]"
+        ));
     }
 
     #[test]
@@ -164,6 +199,49 @@ mod tests {
         assert_eq!(
             sent_messages.borrow().clone(),
             vec![(42, TELEGRAM_CHECK_MESSAGE.to_owned())]
+        );
+    }
+
+    #[test]
+    fn dry_run_lists_each_server_stage_without_network_calls() {
+        let config = Config {
+            run: RunConfig {
+                dry_run: true,
+                connection_timeout_seconds: 10,
+                command_timeout_seconds: 300,
+            },
+            ssh: SshConfig {
+                user: String::from("serverops"),
+                private_key_path: PathBuf::from("/unused/id_ed25519"),
+                public_key_path: PathBuf::from("/unused/id_ed25519.pub"),
+            },
+            servers: vec![
+                ServerConfig {
+                    address: String::from("192.0.2.10"),
+                },
+                ServerConfig {
+                    address: String::from("198.51.100.20"),
+                },
+            ],
+            telegram: TelegramConfig { chat_id: 42 },
+        };
+        let output = RefCell::new(Vec::new());
+
+        print_dry_run_plan(&config, |line| output.borrow_mut().push(line));
+
+        assert_eq!(
+            output.into_inner(),
+            vec![
+                "Dry run: no SSH connections, package updates, or Telegram messages will be sent.",
+                "Server 192.0.2.10:",
+                "  1. Connect over SSH as serverops using the configured key.",
+                "  2. Run `sudo apt update`.",
+                "  3. Run `sudo apt upgrade`.",
+                "Server 198.51.100.20:",
+                "  1. Connect over SSH as serverops using the configured key.",
+                "  2. Run `sudo apt update`.",
+                "  3. Run `sudo apt upgrade`.",
+            ]
         );
     }
 }

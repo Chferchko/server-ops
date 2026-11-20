@@ -4,6 +4,17 @@
 Ubuntu and Debian servers and report the stages to Telegram. Remote operations
 are not implemented yet.
 
+## Dry run
+
+Use `--dry-run <CONFIG_PATH>` to print the exact future SSH, `sudo apt update`,
+and `sudo apt upgrade` stages for every configured server. It validates the
+configuration but opens no SSH connection, runs no package command, and sends
+no Telegram message.
+
+```sh
+cargo run -- --dry-run config.toml
+```
+
 ## Configuration format
 
 [`config.example.toml`](config.example.toml) is a public TOML template. Its IP
@@ -23,7 +34,7 @@ The planned fields are:
 
 | Section | Field | Meaning |
 | --- | --- | --- |
-| `run` | `dry_run` | Leave `true` while inspecting planned work; dry-run behavior will be added in task-5.3. |
+| `run` | `dry_run` | Retained configuration marker for the future update workflow. Use the explicit `--dry-run` CLI mode to inspect planned work now. |
 | `run` | `connection_timeout_seconds` | Maximum time for an SSH connection attempt. |
 | `run` | `command_timeout_seconds` | Maximum time for one remote command. |
 | `ssh` | `user` | Non-interactive SSH user, expected to have the required `sudo` permissions. |
