@@ -1,5 +1,6 @@
 use std::{
     collections::HashSet,
+    env,
     error::Error,
     fmt, fs, io,
     net::Ipv4Addr,
@@ -40,6 +41,22 @@ pub(crate) struct TelegramConfig {
     pub(crate) chat_id: i64,
 }
 
+const TELEGRAM_BOT_TOKEN_ENV: &str = "TELEGRAM_BOT_TOKEN";
+
+pub(crate) struct TelegramBotToken(String);
+
+impl TelegramBotToken {
+    pub(crate) fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl fmt::Debug for TelegramBotToken {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("TelegramBotToken([REDACTED])")
+    }
+}
+
 #[derive(Debug)]
 pub(crate) enum ConfigError {
     Read {
@@ -58,6 +75,8 @@ pub(crate) enum ConfigError {
         path: PathBuf,
         source: io::Error,
     },
+    TelegramBotTokenUnavailable,
+    EmptyTelegramBotToken,
 }
 
 impl fmt::Display for ConfigError {
@@ -95,6 +114,18 @@ impl fmt::Display for ConfigError {
                     path.display()
                 )
             }
+            Self::TelegramBotTokenUnavailable => {
+                write!(
+                    formatter,
+                    "Telegram bot token environment variable `{TELEGRAM_BOT_TOKEN_ENV}` is unavailable"
+                )
+            }
+            Self::EmptyTelegramBotToken => {
+                write!(
+                    formatter,
+                    "Telegram bot token environment variable `{TELEGRAM_BOT_TOKEN_ENV}` must not be empty"
+                )
+            }
         }
     }
 }
@@ -107,9 +138,26 @@ impl Error for ConfigError {
             Self::EmptyField(_)
             | Self::InvalidServerAddress(_)
             | Self::DuplicateServer(_)
-            | Self::PrivateKeyNotFile(_) => None,
+            | Self::PrivateKeyNotFile(_)
+            | Self::TelegramBotTokenUnavailable
+            | Self::EmptyTelegramBotToken => None,
         }
     }
+}
+
+pub(crate) fn load_telegram_bot_token() -> Result<TelegramBotToken, ConfigError> {
+    telegram_bot_token(env::var(TELEGRAM_BOT_TOKEN_ENV))
+}
+
+fn telegram_bot_token(
+    value: Result<String, env::VarError>,
+) -> Result<TelegramBotToken, ConfigError> {
+    let value = value.map_err(|_| ConfigError::TelegramBotTokenUnavailable)?;
+    if value.is_empty() {
+        return Err(ConfigError::EmptyTelegramBotToken);
+    }
+
+    Ok(TelegramBotToken(value))
 }
 
 pub(crate) fn load(path: impl AsRef<Path>) -> Result<Config, ConfigError> {
@@ -181,13 +229,13 @@ fn require_path(field: &'static str, path: &Path) -> Result<(), ConfigError> {
 #[cfg(test)]
 mod tests {
     use std::{
-        fs,
+        env, fs,
         net::Ipv4Addr,
         path::PathBuf,
         sync::atomic::{AtomicUsize, Ordering},
     };
 
-    use super::{ConfigError, load};
+    use super::{ConfigError, load, telegram_bot_token};
 
     static TEMP_DIRECTORY_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
@@ -327,6 +375,33 @@ mod tests {
         assert!(matches!(
             load(&files.config_path),
             Err(ConfigError::EmptyField("ssh.user"))
+        ));
+    }
+
+    #[test]
+    fn loads_telegram_bot_token_without_exposing_it_in_debug_output() {
+        let secret = "123456:secret-telegram-token";
+        let token = telegram_bot_token(Ok(secret.to_owned())).unwrap();
+
+        assert_eq!(token.as_str(), secret);
+        assert!(!format!("{token:?}").contains(secret));
+    }
+
+    #[test]
+    fn telegram_bot_token_errors_do_not_expose_the_token() {
+        let secret = "123456:secret-telegram-token";
+        let error = telegram_bot_token(Err(env::VarError::NotUnicode(secret.into()))).unwrap_err();
+
+        assert!(matches!(error, ConfigError::TelegramBotTokenUnavailable));
+        assert!(!format!("{error}").contains(secret));
+        assert!(!format!("{error:?}").contains(secret));
+    }
+
+    #[test]
+    fn rejects_empty_telegram_bot_token() {
+        assert!(matches!(
+            telegram_bot_token(Ok(String::new())),
+            Err(ConfigError::EmptyTelegramBotToken)
         ));
     }
 }

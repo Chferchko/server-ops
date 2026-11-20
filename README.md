@@ -32,9 +32,9 @@ The planned fields are:
 | `servers` | `address` | One explicitly approved IPv4 address per `[[servers]]` entry. |
 | `telegram` | `chat_id` | Numeric destination chat ID. Replace the intentionally invalid `0`. |
 
-The Telegram bot token is intentionally not a TOML field. It will be read from
-an environment variable in task-3.3, so it must not be committed to this file
-or to a `.env` file that is tracked by Git.
+The Telegram bot token is intentionally not a TOML field. Set it in the
+`TELEGRAM_BOT_TOKEN` environment variable before running the utility; it must
+not be committed to this file or to a tracked `.env` file.
 
 Configuration loading and validation are not implemented yet; task-3.2 will
 validate required fields, server addresses, duplicate servers, and the private
