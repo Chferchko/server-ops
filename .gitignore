@@ -1,0 +1,21 @@
+# Rust build output
+/target/
+
+# Local IDE configuration
+/.idea/
+
+# Codex task artifacts
+/.codex-stuff/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+id_*
+AGENTS.md
+
+# Local logs
+/logs/
+*.log
