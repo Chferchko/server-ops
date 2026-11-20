@@ -5,6 +5,14 @@ use std::{env, error::Error, fmt};
     reason = "the command-line configuration path is scheduled for a later task"
 )]
 mod config;
+#[cfg_attr(
+    not(test),
+    expect(
+        dead_code,
+        reason = "Telegram event delivery is scheduled for a later task"
+    )
+)]
+mod telegram;
 
 const HELP_TEXT: &str = "server-ops updates available system packages on configured servers.\n\
 \n\
